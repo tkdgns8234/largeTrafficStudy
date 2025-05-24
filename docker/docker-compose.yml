@@ -5,7 +5,7 @@ services:
     platform: linux/amd64
     environment:
       MYSQL_ROOT_PASSWORD: 8234
-      MYSQL_DATABASE: large_traffic_example
+      MYSQL_DATABASE: hoon_db
       MYSQL_USER: hoon
       MYSQL_PASSWORD: 8234
     ports:
