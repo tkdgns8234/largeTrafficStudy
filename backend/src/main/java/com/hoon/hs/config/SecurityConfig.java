@@ -3,6 +3,7 @@ package com.hoon.hs.config;
 import com.hoon.hs.jwt.JwtAuthenticationFilter;
 import com.hoon.hs.jwt.JwtUtil;
 import com.hoon.hs.service.CustomUserDetailsService;
+import com.hoon.hs.service.JwtBlacklistService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,9 @@ public class SecurityConfig {
     private CustomUserDetailsService userDetailsService;
 
     @Autowired
+    private JwtBlacklistService jwtBlacklistService;
+
+    @Autowired
     private JwtUtil jwtUtil;
 
     @Bean
@@ -31,9 +35,10 @@ public class SecurityConfig {
                 .cors().disable()
                 .csrf().disable()
                 .authorizeHttpRequests((requests) -> requests
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/api/users/signUp", "/api/users/login").permitAll()
-                        .anyRequest().authenticated()
-                ).addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userDetailsService), UsernamePasswordAuthenticationFilter.class)
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/**").permitAll() // 공개 API
+                        .requestMatchers("/api/protected/**").authenticated() // JWT 인증이 필요한 API
+                ).addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userDetailsService, jwtBlacklistService), UsernamePasswordAuthenticationFilter.class)
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
         return http.build();
