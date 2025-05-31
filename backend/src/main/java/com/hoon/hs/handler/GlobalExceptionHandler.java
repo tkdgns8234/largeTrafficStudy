@@ -1,5 +1,6 @@
 package com.hoon.hs.handler;
 
+import com.hoon.hs.exception.ForbiddenException;
 import com.hoon.hs.exception.RateLimitException;
 import com.hoon.hs.exception.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RateLimitException.class)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public String handleResourceNotFoundException(RateLimitException ex) {
+        return ex.getMessage();
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public String handleForbiddenException(ForbiddenException ex) {
         return ex.getMessage();
     }
 }

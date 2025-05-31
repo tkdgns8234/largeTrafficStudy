@@ -1,5 +1,6 @@
 package com.hoon.hs.controller;
 
+import com.hoon.hs.dto.EditArticleDto;
 import com.hoon.hs.dto.WriteArticleDto;
 import com.hoon.hs.entity.Article;
 import com.hoon.hs.service.ArticleService;
@@ -7,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -52,5 +54,11 @@ public class ArticleController {
             return ResponseEntity.ok(articleService.getNewArticle(boardId, firstId));
         }
         return ResponseEntity.ok(articleService.firstGetArticle(boardId));
+    }
+
+    @DeleteMapping("/{boardId}/articles/{articleId}")
+    public ResponseEntity<String> deleteArticle(@PathVariable Long boardId, @PathVariable Long articleId) {
+        articleService.deleteArticle(boardId, articleId);
+        return ResponseEntity.ok("article is deleted");
     }
 }
