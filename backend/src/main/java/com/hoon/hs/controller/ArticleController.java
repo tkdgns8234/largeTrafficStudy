@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,8 +30,15 @@ public class ArticleController {
     }
 
     @PostMapping("/{boardId}/articles")
-    public ResponseEntity<Article> writeArticle(@RequestBody WriteArticleDto writeArticleDto) {
-        return ResponseEntity.ok(articleService.writeArticle(writeArticleDto));
+    public ResponseEntity<Article> writeArticle(@PathVariable Long boardId,
+            @RequestBody WriteArticleDto writeArticleDto) {
+        return ResponseEntity.ok(articleService.writeArticle(boardId, writeArticleDto));
+    }
+
+    @PutMapping("/{boardId}/articles/{articleId}")
+    public ResponseEntity<Article> editArticle(@PathVariable Long boardId, @PathVariable Long articleId,
+                                               @RequestBody EditArticleDto editArticleDto) {
+        return ResponseEntity.ok(articleService.editArticle(boardId, articleId, editArticleDto));
     }
 
     @GetMapping("/{boardId}/articles")
