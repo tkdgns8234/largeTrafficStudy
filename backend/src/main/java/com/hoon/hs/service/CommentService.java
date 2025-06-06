@@ -1,5 +1,7 @@
 package com.hoon.hs.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hoon.hs.dto.WriteCommentDto;
 import com.hoon.hs.entity.Article;
 import com.hoon.hs.entity.Board;
@@ -13,6 +15,7 @@ import com.hoon.hs.repository.BoardRepository;
 import com.hoon.hs.repository.CommentRepository;
 import com.hoon.hs.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.Authentication;
@@ -30,21 +33,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @Service
+@RequiredArgsConstructor
 public class CommentService {
     private final BoardRepository boardRepository;
     private final ArticleRepository articleRepository;
-
     private final CommentRepository commentRepository;
-
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+    private final ElasticSearchService elasticSearchService;
 
-    @Autowired
-    public CommentService(BoardRepository boardRepository, ArticleRepository articleRepository, UserRepository userRepository, CommentRepository commentRepository) {
-        this.boardRepository = boardRepository;
-        this.articleRepository = articleRepository;
-        this.userRepository = userRepository;
-        this.commentRepository = commentRepository;
-    }
 
     @Transactional
     public Comment writeComment(Long boardId, Long articleId, WriteCommentDto dto) {
@@ -112,6 +109,39 @@ public class CommentService {
         return comment.get();
     }
 
+    public boolean deleteComment(Long boardId, Long articleId, Long commentId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        if (!this.isCanEditComment()) {
+            throw new RateLimitException("comment not written by rate limit");
+        }
+        Optional<User> author = userRepository.findByUsername(userDetails.getUsername());
+        Optional<Board> board = boardRepository.findById(boardId);
+        Optional<Article> article = articleRepository.findById(articleId);
+        if (author.isEmpty()) {
+            throw new ResourceNotFoundException("author not found");
+        }
+        if (board.isEmpty()) {
+            throw new ResourceNotFoundException("board not found");
+        }
+        if (article.isEmpty()) {
+            throw new ResourceNotFoundException("article not found");
+        }
+        if (article.get().getIsDeleted()) {
+            throw new ForbiddenException("article is deleted");
+        }
+        Optional<Comment> comment = commentRepository.findById(commentId);
+        if (comment.isEmpty() || comment.get().getIsDeleted()) {
+            throw new ResourceNotFoundException("comment not found");
+        }
+        if (comment.get().getAuthor() != author.get()) {
+            throw new ForbiddenException("comment author different");
+        }
+        comment.get().setIsDeleted(true);
+        commentRepository.save(comment.get());
+        return true;
+    }
+
     private boolean isCanWriteComment() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
@@ -132,6 +162,23 @@ public class CommentService {
         return this.isDifferenceMoreThanOneMinutes(latestComment.getUpdatedDate());
     }
 
+    @Transactional
+    protected CompletableFuture<Article> getArticle(Long boardId, Long articleId) throws JsonProcessingException {
+        Optional<Board> board = boardRepository.findById(boardId);
+        if (board.isEmpty()) {
+            throw new ResourceNotFoundException("board not found");
+        }
+        Optional<Article> article = articleRepository.findById(articleId);
+        if (article.isEmpty() || article.get().getIsDeleted()) {
+            throw new ResourceNotFoundException("article not found");
+        }
+        article.get().setViewCount(article.get().getViewCount() + 1);
+        articleRepository.save(article.get());
+        String articleJson = objectMapper.writeValueAsString(article.get());
+        elasticSearchService.indexArticleDocument(article.get().getId().toString(), articleJson).block();
+        return CompletableFuture.completedFuture(article.get());
+    }
+
     private boolean isDifferenceMoreThanOneMinutes(LocalDateTime localDateTime) {
         LocalDateTime dateAsLocalDateTime = new Date().toInstant()
                 .atZone(ZoneId.systemDefault())
@@ -143,24 +190,11 @@ public class CommentService {
     }
 
     @Async
-    protected CompletableFuture<Article> getArticle(Long boardId, Long articleId) {
-        Optional<Board> board = boardRepository.findById(boardId);
-        if (board.isEmpty()) {
-            throw new ResourceNotFoundException("board not found");
-        }
-        Optional<Article> article = articleRepository.findById(articleId);
-        if (article.isEmpty() || article.get().getIsDeleted()) {
-            throw new ResourceNotFoundException("article not found");
-        }
-        return CompletableFuture.completedFuture(article.get());
-    }
-
-    @Async
     protected CompletableFuture<List<Comment>> getComments(Long articleId) {
         return CompletableFuture.completedFuture(commentRepository.findByArticleId(articleId));
     }
 
-    public CompletableFuture<Article> getArticleWithComment(Long boardId, Long articleId) {
+    public CompletableFuture<Article> getArticleWithComment(Long boardId, Long articleId) throws JsonProcessingException {
         CompletableFuture<Article> articleFuture = this.getArticle(boardId, articleId);
         CompletableFuture<List<Comment>> commentsFuture = this.getComments(articleId);
 

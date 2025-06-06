@@ -1,0 +1,113 @@
+PUT /article
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "nori_analyzer": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": [
+            "nori_part_of_speech",
+            "nori_readingform",
+            "lowercase",
+            "cjk_width"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "content": {
+        "type": "text",
+        "analyzer": "nori_analyzer"
+      },
+      "created_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd'T'HH:mm:ss.SSS"
+      },
+      "title": {
+        "type": "text",
+        "analyzer": "nori_analyzer",
+        "fields": {
+          "keyword": {
+            "type": "keyword",
+            "ignore_above": 256
+          }
+        }
+      },
+      "updated_date": {
+        "type": "date",
+        "format": "yyyy-MM-dd'T'HH:mm:ss.SSS"
+      },
+      "author_id": {
+        "type": "long"
+      },
+      "author_name": {
+        "type": "text",
+        "analyzer": "nori_analyzer"
+      },
+      "board_id": {
+        "type": "long"
+      },
+      "is_deleted": {
+        "type": "boolean"
+      }
+    }
+  }
+}
+
+
+GET /_cat/indices
+PUT /article/_settings
+{
+  "index": {
+    "number_of_replicas": 0
+  }
+}
+
+PUT /article/_doc/1
+{
+  "content": "상훈",
+  "created_date": "2025-06-01T18:34:30.651",
+  "title": "상훈",
+  "updated_date": null,
+  "author_id": 2,
+  "board_id": 1,
+  "is_deleted": false
+}
+
+PUT /article/_doc/2
+{
+  "content": "상훈 가나다라마바사 ",
+  "created_date": "2025-06-01T18:34:30.651",
+  "title": "상훈2 ",
+  "updated_date": null,
+  "author_id": 2,
+  "board_id": 1,
+  "is_deleted": false
+}
+
+GET /article
+GET /article/_doc/1
+
+GET /article/_search
+
+#유사도 기반 검색
+GET /article/_search
+{
+  "query": {
+    "match": {
+      "content": "상훈"
+    }
+  }
+}
+
+GET /article/_analyze
+{
+  "analyzer": "nori_analyzer",
+  "text": ["상훈이가"]
+}
+
+
+
